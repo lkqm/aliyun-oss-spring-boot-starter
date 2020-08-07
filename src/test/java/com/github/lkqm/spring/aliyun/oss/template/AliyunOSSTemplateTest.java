@@ -16,7 +16,7 @@ public class AliyunOSSTemplateTest {
 
     @Test
     public void test() {
-        String url = aliyunOSSTemplate.uploadFileText("hello!", "test/hello.txt");
+        String url = aliyunOSSTemplate.uploadFileText("test/hello.txt", "hello world!");
         System.out.println(url);
     }
 }

@@ -4,7 +4,7 @@ Aliyun oss spring boot starter.
 
 Supports: JDK 1.7, spring-boot 1.5.x, spring-boot 2.x
 
-## Futures
+## Features
 - Spring Boot快速接入阿里云oss.
 - 提供模版操作类`AliyunOSSTemplate`.
 - 支持默认bucket、内网请求、自定义域名.
@@ -37,7 +37,7 @@ Supports: JDK 1.7, spring-boot 1.5.x, spring-boot 2.x
 
     @Test
     public void test() {
-        String url = aliyunOSSTemplate.uploadFileText("hello!", "test/hello.txt");
+        String url = aliyunOSSTemplate.uploadFileText("test/hello.txt", "hello world!");
         System.out.println(url);
     }
     ```
