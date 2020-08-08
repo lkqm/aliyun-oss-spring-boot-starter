@@ -19,6 +19,10 @@ public interface AliyunOSSOptions {
 
     OSS getOSSClient();
 
+    SecurityTokenResult generateSecurityToken(String sessionName, String roleArn, long durationSeconds);
+
+    SecurityTokenResult generateSecurityToken(String bucket, String sessionName, String roleArn, long durationSeconds);
+
     PostPolicyResult generateClientPolicy(String pathKey, int expireSeconds, long minSize, long maxSize);
 
     PostPolicyResult generateClientPolicy(String bucket, String pathKey, int expireSeconds, long minSize, long maxSize);

@@ -13,6 +13,7 @@ import com.aliyun.oss.model.PolicyConditions;
 import com.aliyuncs.DefaultAcsClient;
 import com.aliyuncs.auth.sts.AssumeRoleRequest;
 import com.aliyuncs.auth.sts.AssumeRoleResponse;
+import com.aliyuncs.auth.sts.AssumeRoleResponse.Credentials;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.profile.DefaultProfile;
@@ -25,9 +26,12 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import org.springframework.util.Base64Utils;
 
 /**
@@ -64,7 +68,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         if (roleArn) {
             String requestEndpoint = ossConfig.getRequestEndpoint();
             AssumeRoleResponse roleResponse = this
-                    .assumeRoleResponse(ossConfig.getAccessKeyId(), clientDurationSeconds);
+                    .assumeRoleResponse(ossConfig.getAccessKeyId(), ossConfig.getRoleArn(), clientDurationSeconds);
             AssumeRoleResponse.Credentials credentials = roleResponse.getCredentials();
             return new OSSClientBuilder().build(
                     requestEndpoint,
@@ -100,10 +104,37 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         return ossClient;
     }
 
+    @Override
+    public SecurityTokenResult generateSecurityToken(String sessionName, String roleArn, long durationSeconds) {
+        return generateSecurityToken(ossConfig.getBucket(), sessionName, roleArn, durationSeconds);
+    }
+
+    @SneakyThrows
+    @Override
+    public SecurityTokenResult generateSecurityToken(String bucket, String sessionName, String roleArn,
+            long durationSeconds) {
+        AssumeRoleResponse roleResponse = assumeRoleResponse(sessionName, roleArn, durationSeconds);
+        Credentials credentials = roleResponse.getCredentials();
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
+        long expireAt = sdf.parse(credentials.getExpiration()).getTime();
+
+        SecurityTokenResult token = new SecurityTokenResult();
+        token.setAccessKeyId(credentials.getAccessKeyId());
+        token.setAccessKeySecret(credentials.getAccessKeySecret());
+        token.setSecurityToken(credentials.getSecurityToken());
+        token.setExpireAt(expireAt);
+        token.setEndpoint(ossConfig.getEndpoint());
+        token.setBucket(bucket);
+        token.setHost(ossConfig.getHostByBucket(bucket));
+        return token;
+    }
+
     /**
      * 获取授权信息
      */
-    private AssumeRoleResponse assumeRoleResponse(String roleSessionName, long durationSeconds) {
+    private AssumeRoleResponse assumeRoleResponse(String roleSessionName, String roleArn, long durationSeconds) {
         try {
             DefaultProfile.addEndpoint("", ossConfig.getRegionId(), "OSS", ossConfig.getEndpoint());
             IClientProfile profile = DefaultProfile
@@ -111,7 +142,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
             final DefaultAcsClient client = new DefaultAcsClient(profile);
             final AssumeRoleRequest request = new AssumeRoleRequest();
             request.setMethod(MethodType.POST);
-            request.setRoleArn(ossConfig.getRoleArn());
+            request.setRoleArn(roleArn);
             request.setRoleSessionName(roleSessionName);
             request.setDurationSeconds(durationSeconds);
             return client.getAcsResponse(request);
@@ -119,6 +150,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
             throw new RuntimeException(e);
         }
     }
+
 
     @Override
     public PostPolicyResult generateClientPolicy(String pathKey, int expireSeconds, long minSize, long maxSize) {

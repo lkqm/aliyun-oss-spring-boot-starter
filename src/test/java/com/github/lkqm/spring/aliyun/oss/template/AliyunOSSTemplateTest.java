@@ -19,4 +19,11 @@ public class AliyunOSSTemplateTest {
         String url = aliyunOSSTemplate.uploadFileText("test/hello.txt", "hello world!");
         System.out.println(url);
     }
+
+    @Test
+    public void generateSecurityToken() {
+        SecurityTokenResult tokenResult = aliyunOSSTemplate
+                .generateSecurityToken("test", "acs:ram::1905705565208367:role/osstestwrite", 900);
+        System.out.println(tokenResult);
+    }
 }
