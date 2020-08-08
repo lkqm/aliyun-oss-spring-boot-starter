@@ -3,12 +3,20 @@ package com.github.lkqm.spring.aliyun.oss.template;
 import static com.github.lkqm.spring.aliyun.oss.template.InnerUtils.checkArgument;
 
 import com.aliyun.oss.OSS;
+import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.common.utils.BinaryUtil;
 import com.aliyun.oss.model.GetObjectRequest;
 import com.aliyun.oss.model.MatchMode;
 import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.aliyun.oss.model.PolicyConditions;
+import com.aliyuncs.DefaultAcsClient;
+import com.aliyuncs.auth.sts.AssumeRoleRequest;
+import com.aliyuncs.auth.sts.AssumeRoleResponse;
+import com.aliyuncs.exceptions.ClientException;
+import com.aliyuncs.http.MethodType;
+import com.aliyuncs.profile.DefaultProfile;
+import com.aliyuncs.profile.IClientProfile;
 import com.github.lkqm.spring.aliyun.oss.AliyunOSSConfig;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -18,6 +26,8 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
+import lombok.Getter;
 import org.springframework.util.Base64Utils;
 
 /**
@@ -25,33 +35,94 @@ import org.springframework.util.Base64Utils;
  */
 public class AliyunOSSTemplate implements AliyunOSSOptions {
 
-    private final AliyunOSSConfig config;
+    @Getter
+    private final AliyunOSSConfig ossConfig;
     private volatile OSS ossClient;
 
-    public AliyunOSSTemplate(AliyunOSSConfig config) {
-        this.config = config;
+    /**
+     * 是否基于STS的授权
+     */
+    private final boolean roleArn;
+    /**
+     * 控制STS授权过期时间
+     */
+    private volatile long clientExpireTime;
+    private static final long clientDurationSeconds = 3600L;
+    private static final long expireDurationSeconds = clientDurationSeconds - 60;
+
+    public AliyunOSSTemplate(AliyunOSSConfig ossConfig) {
+        this.ossConfig = ossConfig;
+        if (this.ossConfig.getRoleArn() != null && this.ossConfig.getRoleArn().length() > 0) {
+            this.roleArn = true;
+        } else {
+            this.roleArn = false;
+        }
     }
 
     @Override
     public OSS createOSSClient() {
-        return config.createOSSClient();
+        if (roleArn) {
+            String requestEndpoint = ossConfig.getRequestEndpoint();
+            AssumeRoleResponse roleResponse = this
+                    .assumeRoleResponse(ossConfig.getAccessKeyId(), clientDurationSeconds);
+            AssumeRoleResponse.Credentials credentials = roleResponse.getCredentials();
+            return new OSSClientBuilder().build(
+                    requestEndpoint,
+                    credentials.getAccessKeyId(),
+                    credentials.getAccessKeySecret(),
+                    credentials.getSecurityToken()
+            );
+        } else {
+            return ossConfig.createOSSClient();
+        }
     }
 
+    /**
+     * 不要关闭返回的OSS客户端
+     */
     @Override
     public OSS getOSSClient() {
         if (ossClient == null) {
             synchronized (this) {
                 if (ossClient == null) {
                     ossClient = createOSSClient();
+                    clientExpireTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(expireDurationSeconds);
+                }
+            }
+        } else if (roleArn && clientExpireTime < System.currentTimeMillis()) {
+            synchronized (this) {
+                if (clientExpireTime < System.currentTimeMillis()) {
+                    ossClient = createOSSClient();
+                    clientExpireTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(expireDurationSeconds);
                 }
             }
         }
         return ossClient;
     }
 
+    /**
+     * 获取授权信息
+     */
+    private AssumeRoleResponse assumeRoleResponse(String roleSessionName, long durationSeconds) {
+        try {
+            DefaultProfile.addEndpoint("", ossConfig.getRegionId(), "OSS", ossConfig.getEndpoint());
+            IClientProfile profile = DefaultProfile
+                    .getProfile(ossConfig.getRegionId(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
+            final DefaultAcsClient client = new DefaultAcsClient(profile);
+            final AssumeRoleRequest request = new AssumeRoleRequest();
+            request.setMethod(MethodType.POST);
+            request.setRoleArn(ossConfig.getRoleArn());
+            request.setRoleSessionName(roleSessionName);
+            request.setDurationSeconds(durationSeconds);
+            return client.getAcsResponse(request);
+        } catch (ClientException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public PostPolicyResult generateClientPolicy(String pathKey, int expireSeconds, long minSize, long maxSize) {
-        return generateClientPolicy(config.getBucket(), pathKey, expireSeconds, minSize, maxSize);
+        return generateClientPolicy(ossConfig.getBucket(), pathKey, expireSeconds, minSize, maxSize);
     }
 
     @Override
@@ -71,20 +142,20 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         String postSignature = client.calculatePostSignature(postPolicy);
 
         PostPolicyResult data = new PostPolicyResult();
-        data.setAccessKeyId(config.getAccessKeyId());
+        data.setAccessKeyId(ossConfig.getAccessKeyId());
         data.setPolicy(encodedPolicy);
         data.setSignature(postSignature);
         data.setKey(pathKey);
         data.setExpireAt(expireEndTime);
-        data.setHost(generateHost(config.getEndpoint(), bucket));
-        data.setEndpoint(config.getEndpoint());
+        data.setHost(generateHost(ossConfig.getEndpoint(), bucket));
+        data.setEndpoint(ossConfig.getEndpoint());
         data.setBucket(bucket);
         return data;
     }
 
     @Override
     public String uploadFileText(String pathKey, String content) {
-        return uploadFileText(config.getBucket(), pathKey, content);
+        return uploadFileText(ossConfig.getBucket(), pathKey, content);
     }
 
     @Override
@@ -95,7 +166,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String uploadFileBase64Image(String pathKey, String content) {
-        return uploadFileBase64Image(config.getBucket(), pathKey, content);
+        return uploadFileBase64Image(ossConfig.getBucket(), pathKey, content);
     }
 
     @Override
@@ -106,7 +177,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String uploadFileBytes(String pathKey, byte[] bytes) {
-        return uploadFileBytes(config.getBucket(), pathKey, bytes);
+        return uploadFileBytes(ossConfig.getBucket(), pathKey, bytes);
     }
 
     @Override
@@ -117,7 +188,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String uploadFileStream(String pathKey, InputStream stream) {
-        return uploadFileStream(config.getBucket(), pathKey, stream);
+        return uploadFileStream(ossConfig.getBucket(), pathKey, stream);
     }
 
     @Override
@@ -134,7 +205,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public ObjectMetadata downloadFile(String pathKey, String file) {
-        return downloadFile(config.getBucket(), pathKey, file);
+        return downloadFile(ossConfig.getBucket(), pathKey, file);
     }
 
     @Override
@@ -148,7 +219,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public ObjectMetadata downloadFile(String pathKey, Consumer<InputStream> handler) {
-        return downloadFile(config.getBucket(), pathKey, handler);
+        return downloadFile(ossConfig.getBucket(), pathKey, handler);
     }
 
     @Override
@@ -175,14 +246,14 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String generateUrl(String pathKey) {
-        return generateUrl(pathKey, config.getBucket());
+        return generateUrl(pathKey, ossConfig.getBucket());
     }
 
     @Override
     public String generateUrl(String pathKey, String bucket) {
         try {
             String qs = URLEncoder.encode(pathKey, StandardCharsets.UTF_8.name());
-            String host = config.getHostByBucket(bucket);
+            String host = ossConfig.getHostByBucket(bucket);
             return host + "/" + qs;
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException("Never happen!", e);

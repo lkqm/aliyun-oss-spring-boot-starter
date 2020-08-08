@@ -43,6 +43,16 @@ public class AliyunOSSConfig implements Serializable {
      */
     private String accessKeySecret;
 
+    /**
+     * 区域id
+     */
+    private String regionId;
+
+    /**
+     * 授权信息
+     */
+    private String roleArn;
+
     public OSS createOSSClient() {
         String requestEndpoint = getRequestEndpoint();
         return new OSSClientBuilder().build(
