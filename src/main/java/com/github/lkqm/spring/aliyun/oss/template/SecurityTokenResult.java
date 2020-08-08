@@ -3,6 +3,9 @@ package com.github.lkqm.spring.aliyun.oss.template;
 import java.io.Serializable;
 import lombok.Data;
 
+/**
+ * STS临时授权信息
+ */
 @Data
 public class SecurityTokenResult implements Serializable {
 

@@ -1,1 +1,1 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.github.lkqm.spring.aliyun.oss.AliyunOSSAutoConfiguration
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.github.lkqm.spring.aliyun.oss.AliyunOssAutoConfiguration

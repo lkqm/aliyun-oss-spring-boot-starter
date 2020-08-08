@@ -4,11 +4,11 @@ import java.util.HashMap;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class AliyunOSSConfigTest {
+public class AliyunOssPropertiesTest {
 
     @Test
     public void getRequestEndpoint() {
-        AliyunOSSConfig config = new AliyunOSSConfig();
+        AliyunOssProperties config = new AliyunOssProperties();
         config.setEndpoint("oss-cn-beijing.aliyuncs.com");
         Assert.assertEquals("无内网endpoint时，应该使用endpoint", config.getEndpoint(), config.getRequestEndpoint());
 
@@ -19,7 +19,7 @@ public class AliyunOSSConfigTest {
 
     @Test
     public void getHostByBucket() {
-        AliyunOSSConfig config = new AliyunOSSConfig();
+        AliyunOssProperties config = new AliyunOssProperties();
         config.setEndpoint("oss-cn-beijing.aliyuncs.com");
         Assert.assertEquals("http://bucket1.oss-cn-beijing.aliyuncs.com", config.getHostByBucket("bucket1"));
 

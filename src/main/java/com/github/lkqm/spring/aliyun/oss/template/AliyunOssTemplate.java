@@ -3,7 +3,6 @@ package com.github.lkqm.spring.aliyun.oss.template;
 import static com.github.lkqm.spring.aliyun.oss.template.InnerUtils.checkArgument;
 
 import com.aliyun.oss.OSS;
-import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.common.utils.BinaryUtil;
 import com.aliyun.oss.model.GetObjectRequest;
 import com.aliyun.oss.model.MatchMode;
@@ -18,7 +17,7 @@ import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
-import com.github.lkqm.spring.aliyun.oss.AliyunOSSConfig;
+import com.github.lkqm.spring.aliyun.oss.AliyunOssProperties;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +29,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import org.springframework.util.Base64Utils;
@@ -38,76 +36,20 @@ import org.springframework.util.Base64Utils;
 /**
  * 阿里云操作模版类, 简化常见操作
  */
-public class AliyunOSSTemplate implements AliyunOSSOptions {
+@Getter
+public class AliyunOssTemplate implements AliyunOssOptions {
 
-    @Getter
-    private final AliyunOSSConfig ossConfig;
-    private volatile OSS ossClient;
+    private final OSS ossClient;
+    private final AliyunOssProperties ossProperties;
 
-    /**
-     * 是否基于STS的授权
-     */
-    private final boolean roleArn;
-    /**
-     * 控制STS授权过期时间
-     */
-    private volatile long clientExpireTime;
-    private static final long clientDurationSeconds = 3600L;
-    private static final long expireDurationSeconds = clientDurationSeconds - 60;
-
-    public AliyunOSSTemplate(AliyunOSSConfig ossConfig) {
-        this.ossConfig = ossConfig;
-        if (this.ossConfig.getRoleArn() != null && this.ossConfig.getRoleArn().length() > 0) {
-            this.roleArn = true;
-        } else {
-            this.roleArn = false;
-        }
-    }
-
-    @Override
-    public OSS createOSSClient() {
-        if (roleArn) {
-            String requestEndpoint = ossConfig.getRequestEndpoint();
-            AssumeRoleResponse roleResponse = this
-                    .assumeRoleResponse(ossConfig.getAccessKeyId(), ossConfig.getRoleArn(), clientDurationSeconds);
-            AssumeRoleResponse.Credentials credentials = roleResponse.getCredentials();
-            return new OSSClientBuilder().build(
-                    requestEndpoint,
-                    credentials.getAccessKeyId(),
-                    credentials.getAccessKeySecret(),
-                    credentials.getSecurityToken()
-            );
-        } else {
-            return ossConfig.createOSSClient();
-        }
-    }
-
-    /**
-     * 不要关闭返回的OSS客户端
-     */
-    @Override
-    public OSS getOSSClient() {
-        if (ossClient == null) {
-            synchronized (this) {
-                if (ossClient == null) {
-                    ossClient = createOSSClient();
-                    clientExpireTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(expireDurationSeconds);
-                }
-            }
-        } else if (roleArn && clientExpireTime < System.currentTimeMillis()) {
-            synchronized (this) {
-                if (clientExpireTime < System.currentTimeMillis()) {
-                    ossClient = createOSSClient();
-                    clientExpireTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(expireDurationSeconds);
-                }
-            }
-        }
-        return ossClient;
+    public AliyunOssTemplate(OSS ossClient, AliyunOssProperties ossProperties) {
+        this.ossClient = ossClient;
+        this.ossProperties = ossProperties;
     }
 
     @Override
     public SecurityTokenResult generateSecurityToken(String sessionName, String roleArn, long durationSeconds) {
-        return generateSecurityToken(ossConfig.getBucket(), sessionName, roleArn, durationSeconds);
+        return generateSecurityToken(ossProperties.getBucket(), sessionName, roleArn, durationSeconds);
     }
 
     @SneakyThrows
@@ -126,9 +68,9 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         token.setAccessKeySecret(credentials.getAccessKeySecret());
         token.setSecurityToken(credentials.getSecurityToken());
         token.setExpireAt(expireAt);
-        token.setEndpoint(ossConfig.getEndpoint());
+        token.setEndpoint(ossProperties.getEndpoint());
         token.setBucket(bucket);
-        token.setHost(ossConfig.getHostByBucket(bucket));
+        token.setHost(ossProperties.getHostByBucket(bucket));
         return token;
     }
 
@@ -137,9 +79,10 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
      */
     private AssumeRoleResponse assumeRoleResponse(String roleSessionName, String roleArn, long durationSeconds) {
         try {
-            DefaultProfile.addEndpoint("", ossConfig.getRegionId(), "OSS", ossConfig.getEndpoint());
+            DefaultProfile.addEndpoint("", ossProperties.getRegionId(), "OSS", ossProperties.getEndpoint());
             IClientProfile profile = DefaultProfile
-                    .getProfile(ossConfig.getRegionId(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
+                    .getProfile(ossProperties.getRegionId(), ossProperties.getAccessKeyId(),
+                            ossProperties.getAccessKeySecret());
             final DefaultAcsClient client = new DefaultAcsClient(profile);
             final AssumeRoleRequest request = new AssumeRoleRequest();
             request.setMethod(MethodType.POST);
@@ -155,40 +98,38 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public PostPolicyResult generateClientPolicy(String pathKey, int expireSeconds, long minSize, long maxSize) {
-        return generateClientPolicy(ossConfig.getBucket(), pathKey, expireSeconds, minSize, maxSize);
+        return generateClientPolicy(ossProperties.getBucket(), pathKey, expireSeconds, minSize, maxSize);
     }
 
     @Override
     public PostPolicyResult generateClientPolicy(String bucket, String pathKey, int expireSeconds, long minSize,
             long maxSize) {
-        OSS client = getOSSClient();
-
         long expireEndTime = System.currentTimeMillis() + expireSeconds * 1000;
         Date expiration = new Date(expireEndTime);
         PolicyConditions conditions = new PolicyConditions();
         conditions.addConditionItem(PolicyConditions.COND_CONTENT_LENGTH_RANGE, minSize, maxSize);
         conditions.addConditionItem(MatchMode.Exact, PolicyConditions.COND_KEY, pathKey);
 
-        String postPolicy = client.generatePostPolicy(expiration, conditions);
+        String postPolicy = ossClient.generatePostPolicy(expiration, conditions);
         byte[] binaryData = postPolicy.getBytes(StandardCharsets.UTF_8);
         String encodedPolicy = BinaryUtil.toBase64String(binaryData);
-        String postSignature = client.calculatePostSignature(postPolicy);
+        String postSignature = ossClient.calculatePostSignature(postPolicy);
 
         PostPolicyResult data = new PostPolicyResult();
-        data.setAccessKeyId(ossConfig.getAccessKeyId());
+        data.setAccessKeyId(ossProperties.getAccessKeyId());
         data.setPolicy(encodedPolicy);
         data.setSignature(postSignature);
         data.setKey(pathKey);
         data.setExpireAt(expireEndTime);
-        data.setHost(calculateHost(ossConfig.getEndpoint(), bucket));
-        data.setEndpoint(ossConfig.getEndpoint());
+        data.setHost(calculateHost(ossProperties.getEndpoint(), bucket));
+        data.setEndpoint(ossProperties.getEndpoint());
         data.setBucket(bucket);
         return data;
     }
 
     @Override
     public String uploadFileText(String pathKey, String content) {
-        return uploadFileText(ossConfig.getBucket(), pathKey, content);
+        return uploadFileText(ossProperties.getBucket(), pathKey, content);
     }
 
     @Override
@@ -199,7 +140,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String uploadFileBase64Image(String pathKey, String content) {
-        return uploadFileBase64Image(ossConfig.getBucket(), pathKey, content);
+        return uploadFileBase64Image(ossProperties.getBucket(), pathKey, content);
     }
 
     @Override
@@ -210,7 +151,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String uploadFileBytes(String pathKey, byte[] bytes) {
-        return uploadFileBytes(ossConfig.getBucket(), pathKey, bytes);
+        return uploadFileBytes(ossProperties.getBucket(), pathKey, bytes);
     }
 
     @Override
@@ -221,7 +162,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String uploadFileStream(String pathKey, InputStream stream) {
-        return uploadFileStream(ossConfig.getBucket(), pathKey, stream);
+        return uploadFileStream(ossProperties.getBucket(), pathKey, stream);
     }
 
     @Override
@@ -230,15 +171,14 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         checkArgument(pathKey != null && pathKey.length() > 0, "pathKey can't be empty");
         checkArgument(stream != null, "stream can't be null");
 
-        OSS c = getOSSClient();
         ObjectMetadata metadata = new ObjectMetadata();
-        c.putObject(bucket, pathKey, stream, metadata);
+        ossClient.putObject(bucket, pathKey, stream, metadata);
         return calculateUrl(pathKey, bucket);
     }
 
     @Override
     public File downloadFileTmp(String pathKey) {
-        return downloadFileTmp(ossConfig.getBucket(), pathKey);
+        return downloadFileTmp(ossProperties.getBucket(), pathKey);
     }
 
     @Override
@@ -251,7 +191,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public ObjectMetadata downloadFile(String pathKey, String file) {
-        return downloadFile(ossConfig.getBucket(), pathKey, file);
+        return downloadFile(ossProperties.getBucket(), pathKey, file);
     }
 
     @Override
@@ -260,12 +200,12 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         checkArgument(pathKey != null && pathKey.length() > 0, "pathKey can't be empty");
         checkArgument(file != null && file.length() > 0, "file can't be empty");
         GetObjectRequest request = new GetObjectRequest(bucket, pathKey);
-        return getOSSClient().getObject(request, new File(file));
+        return ossClient.getObject(request, new File(file));
     }
 
     @Override
     public ObjectMetadata downloadFile(String pathKey, Consumer<InputStream> handler) {
-        return downloadFile(ossConfig.getBucket(), pathKey, handler);
+        return downloadFile(ossProperties.getBucket(), pathKey, handler);
     }
 
     @Override
@@ -274,7 +214,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         checkArgument(pathKey != null && pathKey.length() > 0, "pathKey can't be empty");
         checkArgument(handler != null, "handler can't be null");
 
-        OSSObject ossObject = getOSSClient().getObject(bucket, pathKey);
+        OSSObject ossObject = ossClient.getObject(bucket, pathKey);
         InputStream content = ossObject.getObjectContent();
         try {
             handler.accept(content);
@@ -292,14 +232,14 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
 
     @Override
     public String calculateUrl(String pathKey) {
-        return calculateUrl(ossConfig.getBucket(), pathKey);
+        return calculateUrl(ossProperties.getBucket(), pathKey);
     }
 
     @Override
     public String calculateUrl(String bucket, String pathKey) {
         try {
             String qs = URLEncoder.encode(pathKey, StandardCharsets.UTF_8.name());
-            String host = ossConfig.getHostByBucket(bucket);
+            String host = ossProperties.getHostByBucket(bucket);
             return host + "/" + qs;
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException("Never happen!", e);

@@ -10,15 +10,13 @@ import java.io.InputStream;
  * <p>
  * 上传文件: uploadXxx 下载文件: downloadXxx
  */
-public interface AliyunOSSOptions {
+public interface AliyunOssOptions {
 
     //------------------------------------------------------------------
     // 基本
     //------------------------------------------------------------------
 
-    OSS createOSSClient();
-
-    OSS getOSSClient();
+    OSS getOssClient();
 
     SecurityTokenResult generateSecurityToken(String sessionName, String roleArn, long durationSeconds);
 
