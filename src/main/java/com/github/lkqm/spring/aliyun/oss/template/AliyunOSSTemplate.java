@@ -4,8 +4,6 @@ import static com.github.lkqm.spring.aliyun.oss.template.InnerUtils.checkArgumen
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.common.utils.BinaryUtil;
-import com.aliyun.oss.model.AppendObjectRequest;
-import com.aliyun.oss.model.AppendObjectResult;
 import com.aliyun.oss.model.GetObjectRequest;
 import com.aliyun.oss.model.MatchMode;
 import com.aliyun.oss.model.OSSObject;
@@ -132,34 +130,6 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         ObjectMetadata metadata = new ObjectMetadata();
         c.putObject(bucket, pathKey, stream, metadata);
         return generateUrl(pathKey, bucket);
-    }
-
-    @Override
-    public AppendObjectResult appendObjectBytes(String pathKey, byte[] bytes, long position) {
-        return appendObjectBytes(config.getBucket(), pathKey, bytes, position);
-    }
-
-    @Override
-    public AppendObjectResult appendObjectBytes(String bucket, String pathKey, byte[] bytes, long position) {
-        ByteArrayInputStream stream = new ByteArrayInputStream(bytes);
-        return appendObjectStream(bucket, pathKey, stream, position);
-    }
-
-    @Override
-    public AppendObjectResult appendObjectStream(String pathKey, InputStream stream, long position) {
-        return appendObjectStream(config.getBucket(), pathKey, stream, position);
-    }
-
-    @Override
-    public AppendObjectResult appendObjectStream(String bucket, String pathKey, InputStream stream, long position) {
-        checkArgument(bucket != null && bucket.length() > 0, "bucket can't be empty");
-        checkArgument(pathKey != null && pathKey.length() > 0, "pathKey can't be empty");
-        checkArgument(stream != null, "stream can't be null");
-
-        AppendObjectRequest appendObjectRequest = new AppendObjectRequest(bucket, pathKey, stream,
-                new ObjectMetadata());
-        appendObjectRequest.setPosition(position);
-        return getOSSClient().appendObject(appendObjectRequest);
     }
 
     @Override

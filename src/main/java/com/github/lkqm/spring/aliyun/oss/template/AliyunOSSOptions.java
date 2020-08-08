@@ -1,7 +1,6 @@
 package com.github.lkqm.spring.aliyun.oss.template;
 
 import com.aliyun.oss.OSS;
-import com.aliyun.oss.model.AppendObjectResult;
 import com.aliyun.oss.model.ObjectMetadata;
 import java.io.InputStream;
 
@@ -43,14 +42,6 @@ public interface AliyunOSSOptions {
     String uploadFileStream(String pathKey, InputStream stream);
 
     String uploadFileStream(String bucket, String pathKey, InputStream stream);
-
-    AppendObjectResult appendObjectBytes(String pathKey, byte[] bytes, long position);
-
-    AppendObjectResult appendObjectBytes(String bucket, String pathKey, byte[] bytes, long position);
-
-    AppendObjectResult appendObjectStream(String pathKey, InputStream stream, long position);
-
-    AppendObjectResult appendObjectStream(String bucket, String pathKey, InputStream stream, long position);
 
     //------------------------------------------------------------------
     // 下载文件
