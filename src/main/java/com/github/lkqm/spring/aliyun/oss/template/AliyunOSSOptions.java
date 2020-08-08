@@ -2,6 +2,7 @@ package com.github.lkqm.spring.aliyun.oss.template;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.ObjectMetadata;
+import java.io.File;
 import java.io.InputStream;
 
 /**
@@ -50,6 +51,11 @@ public interface AliyunOSSOptions {
     //------------------------------------------------------------------
     // 下载文件
     //------------------------------------------------------------------
+
+    File downloadFileTmp(String pathKey);
+
+    File downloadFileTmp(String bucket, String pathKey);
+
     ObjectMetadata downloadFile(String pathKey, String file);
 
     ObjectMetadata downloadFile(String bucket, String pathKey, String file);
@@ -62,12 +68,12 @@ public interface AliyunOSSOptions {
     // 辅助方法
     //------------------------------------------------------------------
 
-    String generateUrl(String pathKey);
+    String calculateUrl(String pathKey);
 
-    String generateUrl(String bucket, String pathKey);
+    String calculateUrl(String bucket, String pathKey);
 
-    String generatePathKey(String url);
+    String calculatePathKey(String url);
 
-    String generateHost(String endpoint, String bucket);
+    String calculateHost(String endpoint, String bucket);
 
 }

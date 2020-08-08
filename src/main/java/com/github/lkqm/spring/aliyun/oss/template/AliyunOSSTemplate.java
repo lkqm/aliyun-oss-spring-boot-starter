@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -179,7 +180,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         data.setSignature(postSignature);
         data.setKey(pathKey);
         data.setExpireAt(expireEndTime);
-        data.setHost(generateHost(ossConfig.getEndpoint(), bucket));
+        data.setHost(calculateHost(ossConfig.getEndpoint(), bucket));
         data.setEndpoint(ossConfig.getEndpoint());
         data.setBucket(bucket);
         return data;
@@ -232,7 +233,20 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
         OSS c = getOSSClient();
         ObjectMetadata metadata = new ObjectMetadata();
         c.putObject(bucket, pathKey, stream, metadata);
-        return generateUrl(pathKey, bucket);
+        return calculateUrl(pathKey, bucket);
+    }
+
+    @Override
+    public File downloadFileTmp(String pathKey) {
+        return downloadFileTmp(ossConfig.getBucket(), pathKey);
+    }
+
+    @Override
+    public File downloadFileTmp(String bucket, String pathKey) {
+        String tmpDir = System.getProperty("java.io.tmpdir");
+        String file = tmpDir + UUID.randomUUID();
+        downloadFile(bucket, pathKey, file);
+        return new File(file);
     }
 
     @Override
@@ -277,12 +291,12 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
     }
 
     @Override
-    public String generateUrl(String pathKey) {
-        return generateUrl(pathKey, ossConfig.getBucket());
+    public String calculateUrl(String pathKey) {
+        return calculateUrl(ossConfig.getBucket(), pathKey);
     }
 
     @Override
-    public String generateUrl(String pathKey, String bucket) {
+    public String calculateUrl(String bucket, String pathKey) {
         try {
             String qs = URLEncoder.encode(pathKey, StandardCharsets.UTF_8.name());
             String host = ossConfig.getHostByBucket(bucket);
@@ -293,7 +307,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
     }
 
     @Override
-    public String generatePathKey(String url) {
+    public String calculatePathKey(String url) {
         String urlPath = InnerUtils.getUrlPath(url);
         if (urlPath != null && urlPath.startsWith("/")) {
             String pathKey = urlPath.substring(1);
@@ -305,7 +319,7 @@ public class AliyunOSSTemplate implements AliyunOSSOptions {
     }
 
     @Override
-    public String generateHost(String endpoint, String bucket) {
+    public String calculateHost(String endpoint, String bucket) {
         return InnerUtils.generateHost(endpoint, bucket);
     }
 
