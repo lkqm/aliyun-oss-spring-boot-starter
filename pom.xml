@@ -9,7 +9,7 @@
 
     <groupId>com.github.lkqm</groupId>
     <artifactId>aliyun-oss-spring-boot-starter</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.1</version>
 
     <name>${project.artifactId}</name>
     <description>Aliyun OSS Spring Boot Starter</description>
@@ -31,7 +31,7 @@
         <connection>scm:git:https://github.com/lkqm/aliyun-oss-spring-boot-starter.git</connection>
         <developerConnection>scm:git:git@github.com:lkqm/aliyun-oss-spring-boot-starter.git</developerConnection>
         <url>https://github.com/lkqm/aliyun-oss-spring-boot-starter</url>
-        <tag>HEAD</tag>
+        <tag>v1.0.1</tag>
     </scm>
 
     <properties>
