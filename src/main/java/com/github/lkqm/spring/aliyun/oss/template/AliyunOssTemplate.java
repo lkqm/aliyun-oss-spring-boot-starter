@@ -135,7 +135,7 @@ public class AliyunOssTemplate implements AliyunOssOptions {
     @Override
     public String uploadFileText(String bucket, String pathKey, String content) {
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
-        return uploadFileBytes(pathKey, bytes);
+        return uploadFileBytes(bucket, pathKey, bytes);
     }
 
     @Override
@@ -173,7 +173,7 @@ public class AliyunOssTemplate implements AliyunOssOptions {
 
         ObjectMetadata metadata = new ObjectMetadata();
         ossClient.putObject(bucket, pathKey, stream, metadata);
-        return calculateUrl(pathKey, bucket);
+        return calculateUrl(bucket, pathKey);
     }
 
     @Override
