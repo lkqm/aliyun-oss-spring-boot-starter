@@ -2,6 +2,7 @@ package com.github.lkqm.spring.aliyun.oss;
 
 import static com.github.lkqm.spring.aliyun.oss.template.InnerUtils.checkArgument;
 
+import com.aliyun.oss.ClientBuilderConfiguration;
 import com.github.lkqm.spring.aliyun.oss.template.InnerUtils;
 import java.io.Serializable;
 import java.util.Map;
@@ -62,12 +63,14 @@ public class AliyunOssProperties implements Serializable, InitializingBean {
      */
     private String bucket;
 
+    /**
+     * Client configuration.
+     */
+    private ClientBuilderConfiguration config = new ClientBuilderConfiguration();
+
     @Override
     public void afterPropertiesSet() {
         checkArgument(!StringUtils.isEmpty(endpoint), "'endpoint' can't be empty");
-        checkArgument(!StringUtils.isEmpty(regionId), "'regionId' can't be empty");
-        checkArgument(!StringUtils.isEmpty(accessKeyId), "'accessKeyId' can't be empty");
-        checkArgument(!StringUtils.isEmpty(accessKeySecret), "'accessKeySecret' can't be empty");
         checkArgument(!StringUtils.isEmpty(bucket), "'bucket' can't be empty");
     }
 
