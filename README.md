@@ -1,4 +1,4 @@
-# aliyun-oss-spring-boot-starter ![Maven Central](https://img.shields.io/maven-central/v/com.github.lkqm/aliyun-oss-spring-boot-starter)
+# aliyun-oss-spring-boot-starter
 
 Aliyun oss spring boot starter.
 
@@ -16,15 +16,15 @@ Supports: JDK 1.7, spring-boot 1.5.x, spring-boot 2.x
    <dependency>
        <groupId>com.github.lkqm</groupId>
        <artifactId>aliyun-oss-spring-boot-starter</artifactId>
-       <version>${version}</version>
+       <version>1.0.2</version>
    </dependency>
     ```
 
 2. 配置（application.properties)
     ```
    aliyun.oss.endpoint=@endpoint                    # 阿里云服务地址(必)
-   aliyun.oss.internal-endpoint=@internalEndpoint   # 阿里云服务地址内网
-   aliyun.oss.region-id=@regionId                   # 地区标识(必)
+   aliyun.oss.internal-endpoint=@internalEndpoint   # 阿里云服务地址内网, 配置后上传下载会使用, 不影响返回的url地址
+   aliyun.oss.region-id=@regionId                   # 地区标识, 当role-arn不为空，必填
    
    aliyun.oss.access-key-id=@keyId                  # 访问key(必)
    aliyun.oss.access-key-secret=@secret             # 访问密钥(必)
@@ -33,6 +33,8 @@ Supports: JDK 1.7, spring-boot 1.5.x, spring-boot 2.x
    
    aliyun.oss.bucket=@bucket                        # 默认上传的空间(必)
    aliyun.oss.bucket-custom-domain.@bucket=@domain  # 配置自定义域名
+   
+   aliyun.oss.config.XXX=@xxx                       # 更多客户端配置, 参看: `ClientBuilderConfiguration`
    ```
 
 3. 注入使用
