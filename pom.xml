@@ -9,7 +9,7 @@
 
     <groupId>com.github.lkqm</groupId>
     <artifactId>aliyun-oss-spring-boot-starter</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.2</version>
 
     <name>${project.artifactId}</name>
     <description>Aliyun OSS Spring Boot Starter</description>
